@@ -1,4 +1,5 @@
 /drafts
 /temps_texts
+/temps_nlp
 .venv
 .env
