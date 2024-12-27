@@ -3,3 +3,4 @@
 /temps_nlp
 .venv
 .env
+*csv
