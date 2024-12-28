@@ -5,7 +5,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-import datetime
+from datetime import datetime
 
 class TradeEnv(gymnasium.Env):
     def __init__(self, 
@@ -39,8 +39,6 @@ class TradeEnv(gymnasium.Env):
         previous_index = datetime_index + 1 - self.time_window 
         df_previous = self.data.loc[self.dates[previous_index]:self.dates[datetime_index]]
         df_previous = df_previous.drop(columns=['close_real'])
-        df_previous['last_actions'] = self.last_actions
-        df_previous['last_returns'] = self.last_returns
         return df_previous.values
 
     def _get_current_return_from_datetime(self, datetime):
@@ -231,7 +229,7 @@ class TradeEnv(gymnasium.Env):
         curr_state = self._get_current_state_from_datetime(curr_date)
         self._seed(seed)
         if self.verbose:
-            now = datetime.datetime.now().strftime('%Y%m%d-%Hh%M')
+            now = datetime.now().strftime('%Y%m%d-%Hh%M')
             print(f"Reset Environment at {now}")
         return curr_state, self.memory
     
