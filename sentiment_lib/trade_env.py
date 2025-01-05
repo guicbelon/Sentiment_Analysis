@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from datetime import datetime
+from .reports import *
 
 class TradeEnv(gymnasium.Env):
     def __init__(self, 
@@ -238,58 +239,15 @@ class TradeEnv(gymnasium.Env):
         obs = e.reset()
         return e, obs
     
-    def show_final_results(self, saving_path: str = None):
-        df = pd.DataFrame.from_dict(self.memory, orient='index')
-        df.index = pd.to_datetime(df.index)
-        df = df.astype(float)
-        ticker_info = self.data.loc[self.data.index.isin(df.index)]
-        ticker_info = ticker_info[['close_real']]
-        ticker_info = ticker_info.dropna()
-        ticker_info['close_real'] = ticker_info.values / ticker_info.values[0]
-        df['current_balance'] = df['current_balance'] / df['current_balance'].iloc[0]
-        df_positions = pd.DataFrame.from_dict(self.position_memory)
-        df_positions.open_time = pd.to_datetime(df_positions.open_time)
-        df_positions.close_time = pd.to_datetime(df_positions.close_time)
-        df_close = []
-        df_arrow_up = []
-        df_arrow_down = []
-        for row_iter in df_positions.iterrows():
-            row = row_iter[1]
-            close_value = (ticker_info.loc[ticker_info.index == row["close_time"]]).close_real.values[0]
-            close_date = row["close_time"]
-            df_close.append({"date":close_date, "x_close":close_value})
-            open_date = row["open_time"]
-            open_value = (ticker_info.loc[ticker_info.index == row["open_time"]]).close_real.values[0]
-            if row["type"] == "long":
-                df_arrow_up.append({"date":open_date, "arrow_up":open_value})
-            elif row["type"] == "short":
-                df_arrow_down.append({"date":open_date, "arrow_down":open_value})
-        df_close = pd.DataFrame(df_close)
-        if len(df_close) > 0:
-            df_close.set_index("date", inplace=True)
-        df_arrow_up = pd.DataFrame(df_arrow_up)
-        if len(df_arrow_up) > 0:
-            df_arrow_up.set_index("date", inplace=True)
-        df_arrow_down = pd.DataFrame(df_arrow_down)
-        if len(df_arrow_down) > 0:
-            df_arrow_down.set_index("date", inplace=True)
-        
-        df = pd.concat([df, df_close, df_arrow_up, df_arrow_down], axis=1)
-        self._print_info(df_positions.returns.values, "Final Metrics")
-        plt.figure(figsize=(14, 5))
-        plt.plot(ticker_info, label=self.ticker, color='orange')
-        plt.plot(df['current_balance'], label='Balance', color='blue')
-        if len(df_arrow_up) > 0:
-            plt.plot(df['arrow_up'], label='Buy', marker='^', markersize=10, color='g', lw=0)
-        if len(df_arrow_down) > 0:
-            plt.plot(df['arrow_down'], label='Sell', marker='v', markersize=10, color='r', lw=0)
-        plt.plot(df['x_close'], label='Close', marker='x', markersize=10, color='black', lw=0)
-        plt.title('Trading Results')
-        plt.legend()
-
-        if saving_path is not None:
-            df_positions.to_csv(saving_path + "/df_positions.csv", index=True)
-            plt.savefig(saving_path + "/trading_results.png")
-        print("Number of operations: ",len(df_positions))
+    def show_final_results(self, saving_path: str = None, **kwargs):
+        report_creator = ReportCreator(env = self, saving_path = saving_path)
+        report_creator._create_all_time_df()
+        report_creator._create_positions_df()
+        print("Number of positions: ", len(self.position_memory))
+        self._print_info(report_creator.df_positions.returns.values, "Final Metrics")
+        report_creator._create_img_df()
+        report_creator._create_strategy_performance_img()
         plt.show()
-        return df_positions
+        report_creator._create_html_report()
+        report_creator._add_parameters_to_html(**kwargs)
+        return report_creator.df_positions

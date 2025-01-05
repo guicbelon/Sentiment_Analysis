@@ -88,14 +88,20 @@ class MultiProcessingPipeline:
         for process in self.multi_process:
             process.join()
     
-    def get_results(self):
+def get_results(self):
         for info in self.tested_envs:
             try:
                 index = info['process_index']
-                print(f"\nResults of process {index + 1}")
+                print(f"\nResults of process {index}")
                 env = info['tested_env']
                 saving_path = info['saving_path']
-                df_balance = env.show_final_results(saving_path)
+                kwargs = {"test_kwargs": self.test_kwargs,
+                          "model": self.model,
+                          "model_parameters": self.model_parameters,
+                          "policy_parameters": self.policy_parameters,
+                          "policy": (self.policy if type(self.policy) == str else self.policy.__name__),  
+                          "total_timesteps": self.total_timesteps}
+                df_balance = env.show_final_results(saving_path = saving_path, **kwargs)
             except Exception as e:
                 print(e)
                 pass
