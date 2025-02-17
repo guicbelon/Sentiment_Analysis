@@ -8,17 +8,20 @@ logging.getLogger('matplotlib.font_manager').setLevel(level=logging.CRITICAL)
 
 class ReportCreator:
     def __init__(self, 
-                 env, 
-                 saving_path: str = None,):
-        self.env = env
-        self.save_path = saving_path
+                 env_test, 
+                 env_train = None,
+                 saving_path: str = None):
+        self.env_test = env_test
+        self.env_train = env_train
+        self.save_path = os.path.join(saving_path, "reports")
+        os.makedirs(self.save_path, exist_ok=True)
         
         
     def _create_all_time_df(self):
-        df = pd.DataFrame.from_dict(self.env.memory, orient='index')
+        df = pd.DataFrame.from_dict(self.env_test.memory, orient='index')
         df.index = pd.to_datetime(df.index)
         df = df.astype(float)
-        ticker_info = self.env.data.loc[self.env.data.index.isin(df.index)]
+        ticker_info = self.env_test.data.loc[self.env_test.data.index.isin(df.index)]
         ticker_info = ticker_info[['close_real']]
         ticker_info = ticker_info.dropna()
         ticker_info['close_real'] = ticker_info.values / ticker_info.values[0]
@@ -31,7 +34,9 @@ class ReportCreator:
         return df
     
     def _create_positions_df(self):
-        df_positions = pd.DataFrame.from_dict(self.env.position_memory)
+        df_positions = pd.DataFrame.from_dict(self.env_test.position_memory)
+        if len(df_positions) == 0:
+            raise Exception("No positions were generated during the backtest.")
         df_positions.open_time = pd.to_datetime(df_positions.open_time)
         df_positions.close_time = pd.to_datetime(df_positions.close_time)
         self.df_positions = df_positions
@@ -70,7 +75,7 @@ class ReportCreator:
     def _create_strategy_performance_img(self):
         plt.figure(figsize=(14, 5))
         plt.title('Trading Results')
-        plt.plot(self.ticker_info, label=self.env.ticker, color='orange')
+        plt.plot(self.ticker_info, label=self.env_test.ticker, color='orange')
         plt.plot(self.all_time_df['current_balance'], label='Balance', color='blue')        
         if self.save_path is not None:
             plt.legend()
@@ -84,6 +89,20 @@ class ReportCreator:
         if self.save_path is not None:
             plt.savefig(f'{self.save_path}/position_results.png')
     
+    def _create_train_test_price_img(self):
+        if self.env_train is None:
+            raise Exception("No train environment was provided.")
+        train_df = self.env_train.data
+        test_df = self.env_test.data
+        plt.figure(figsize=(14, 5))
+        plt.plot(train_df.index, train_df.close_real.values, label="train")
+        plt.plot(test_df.index,test_df.close_real.values, label="test")
+        plt.legend()
+        plt.title(self.env_test.ticker)
+        if self.save_path is not None:
+            plt.savefig(f'{self.save_path}/train_test_price.png')
+        plt.close()
+    
     def _create_html_report(self):
         df_strategy = self.all_time_df.copy()
         if len(df_strategy) == 0:
@@ -92,11 +111,11 @@ class ReportCreator:
             return
         df_strategy.index = pd.to_datetime(df_strategy.index)
         df_strategy['strategy_returns'] = df_strategy['current_balance'].pct_change()
-        df_strategy[f'{self.env.ticker}_returns'] = df_strategy['close_real'].pct_change()
+        df_strategy[f'{self.env_test.ticker}_returns'] = df_strategy['close_real'].pct_change()
         dir_path = os.path.dirname(os.path.realpath(__file__))
         template_path = os.path.join(dir_path, 'template.html')
         qs.reports.html(returns=df_strategy['strategy_returns'], 
-                    benchmark=df_strategy[f'{self.env.ticker}_returns'], 
+                    benchmark=df_strategy[f'{self.env_test.ticker}_returns'], 
                     output=f'{self.save_path}/strategy_report.html',
                     template_path=template_path)
         df_html = self.df_positions.to_html(index=False)
@@ -134,3 +153,4 @@ class ReportCreator:
         right_div.insert(0, BeautifulSoup(df_html, 'html.parser'))
         with open(f'{self.save_path}/strategy_report.html', "w") as file:
             file.write(str(soup))
+            
