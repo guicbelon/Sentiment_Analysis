@@ -31,8 +31,11 @@ class TradeEnv(gymnasium.Env):
         self.only_long = only_long
         self.verbose = verbose
         self.action_space = gymnasium.spaces.Discrete(3)
-        self.observation_space = gymnasium.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self.time_window, data.shape[1] - 1), dtype=np.float64)
+        self.observation_space = gymnasium.spaces.Dict({
+            "time_series": gymnasium.spaces.Box(
+                 low=-np.inf, high=np.inf, shape=(self.time_window, data.shape[1] - 1), dtype=np.float64),
+            "position": gymnasium.spaces.Box(low=-1, high=1, shape=(2,), dtype=float)
+        })
         self.reset()
         
     def _get_current_state_from_datetime(self, datetime):
@@ -40,7 +43,21 @@ class TradeEnv(gymnasium.Env):
         previous_index = datetime_index + 1 - self.time_window 
         df_previous = self.data.loc[self.dates[previous_index]:self.dates[datetime_index]]
         df_previous = df_previous.drop(columns=['close_real'])
-        return df_previous.values
+        time_series = df_previous.values
+        current_position_return = self.position_return - 1
+        position_type = 0
+        if self.is_long_open:
+            position_type = 1
+        elif self.is_short_open:
+            position_type = -1
+        current_state = {
+            "time_series": time_series,
+            "position": np.array([position_type, 
+                                  current_position_return[0] 
+                                  if type(current_position_return) == np.ndarray 
+                                  else current_position_return])
+        }
+        return current_state
 
     def _get_current_return_from_datetime(self, datetime):
         datetime_index = self.dates.index(datetime)
