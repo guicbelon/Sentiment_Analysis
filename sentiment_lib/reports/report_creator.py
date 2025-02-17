@@ -7,10 +7,21 @@ import os
 logging.getLogger('matplotlib.font_manager').setLevel(level=logging.CRITICAL)
 
 class ReportCreator:
+    """
+    A class to create various reports and visualizations from trading environment data.
+    """
     def __init__(self, 
                  env_test, 
                  env_train = None,
                  saving_path: str = None):
+        """
+        Initializes the ReportCreator with test and train environments and a saving path.
+
+        Args:
+            env_test: The test environment containing trading data.
+            env_train: The train environment containing trading data (optional).
+            saving_path (str): The path where reports will be saved (optional).
+        """
         self.env_test = env_test
         self.env_train = env_train
         self.save_path = os.path.join(saving_path, "reports")
@@ -18,6 +29,12 @@ class ReportCreator:
         
         
     def _create_all_time_df(self):
+        """
+        Creates a DataFrame with all-time trading data and saves it as a CSV file.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing all-time trading data.
+        """
         df = pd.DataFrame.from_dict(self.env_test.memory, orient='index')
         df.index = pd.to_datetime(df.index)
         df = df.astype(float)
@@ -34,6 +51,15 @@ class ReportCreator:
         return df
     
     def _create_positions_df(self):
+        """
+        Creates a DataFrame with position data and saves it as a CSV file.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing position data.
+
+        Raises:
+            Exception: If no positions were generated during the backtest.
+        """
         df_positions = pd.DataFrame.from_dict(self.env_test.position_memory)
         if len(df_positions) == 0:
             raise Exception("No positions were generated during the backtest.")
@@ -45,6 +71,12 @@ class ReportCreator:
         return df_positions
     
     def _create_img_df(self):
+        """
+        Creates a DataFrame for generating images with trading data.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing data for image generation.
+        """
         df_close = []
         df_arrow_up = []
         df_arrow_down = []
@@ -73,6 +105,9 @@ class ReportCreator:
         return df
     
     def _create_strategy_performance_img(self):
+        """
+        Creates and saves images showing the strategy performance.
+        """
         plt.figure(figsize=(14, 5))
         plt.title('Trading Results')
         plt.plot(self.ticker_info, label=self.env_test.ticker, color='orange')
@@ -90,6 +125,12 @@ class ReportCreator:
             plt.savefig(f'{self.save_path}/position_results.png')
     
     def _create_train_test_price_img(self):
+        """
+        Creates and saves images showing the train and test price data.
+
+        Raises:
+            Exception: If no train environment was provided.
+        """
         if self.env_train is None:
             raise Exception("No train environment was provided.")
         train_df = self.env_train.data
@@ -104,6 +145,9 @@ class ReportCreator:
         plt.close()
     
     def _create_html_report(self):
+        """
+        Creates an HTML report with strategy performance and position data.
+        """
         df_strategy = self.all_time_df.copy()
         if len(df_strategy) == 0:
             return
@@ -129,6 +173,12 @@ class ReportCreator:
             file.write(str(soup))
                 
     def _add_parameters_to_html(self, **kwargs):
+        """
+        Adds parameters to the HTML report.
+
+        Args:
+            **kwargs: Arbitrary keyword arguments containing parameters to add.
+        """
         if self.save_path is None:
             return
         combined_kwargs = {}
@@ -153,4 +203,3 @@ class ReportCreator:
         right_div.insert(0, BeautifulSoup(df_html, 'html.parser'))
         with open(f'{self.save_path}/strategy_report.html', "w") as file:
             file.write(str(soup))
-            

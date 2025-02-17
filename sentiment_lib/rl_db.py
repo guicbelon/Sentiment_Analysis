@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -135,7 +134,18 @@ class RLDatabase:
                  time_window: int = 60,
                  include_sentiment_info:bool = False,
                  normalize_data: bool = True):
-        
+        """
+        Initializes the RLDatabase class with the given parameters.
+
+        Args:
+            start_train (str): The start date for the training period.
+            end_train (str): The end date for the training period.
+            end_test (str): The end date for the testing period.
+            ticker (str, optional): The ticker symbol of the stock. Defaults to 'AAPL'.
+            time_window (int, optional): The time window for the data. Defaults to 60.
+            include_sentiment_info (bool, optional): Whether to include sentiment information. Defaults to False.
+            normalize_data (bool, optional): Whether to normalize the data. Defaults to True.
+        """
         self.start_train = pd.to_datetime(start_train)
         self.end_train = pd.to_datetime(end_train)
         self.end_test = pd.to_datetime(end_test)
@@ -150,6 +160,12 @@ class RLDatabase:
         self.train_test_info = None
         
     def _create_ohlcv_df(self):
+        """
+        Creates the OHLCV DataFrame by reading data from a CSV file.
+
+        Returns:
+            pd.DataFrame: The OHLCV DataFrame.
+        """
         if self.ohlcv is not None:
             return self.ohlcv
         try:
@@ -162,6 +178,12 @@ class RLDatabase:
         return self.ohlcv
     
     def _create_ta_df(self):
+        """
+        Creates the technical analysis DataFrame by calculating various technical indicators.
+
+        Returns:
+            pd.DataFrame: The technical analysis DataFrame.
+        """
         if self.ta_df is not None:
             return self.ta_df
         try:
@@ -202,6 +224,15 @@ class RLDatabase:
         return self.ta_df
     
     def _create_finbert_score(self, df):
+        """
+        Creates the FinBERT sentiment score for each row in the DataFrame.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing the sentiment data.
+
+        Returns:
+            pd.DataFrame: The DataFrame with the FinBERT sentiment score added.
+        """
         finbert_score = []
         for _, row in df.iterrows():
             finbert_info = ast.literal_eval(row["finbert"]) # neutral; positive; negative
@@ -213,6 +244,15 @@ class RLDatabase:
         return df
     
     def _create_sentiment_by_news(self, df):
+        """
+        Creates the sentiment score for each news article.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing the news data.
+
+        Returns:
+            pd.DataFrame: The DataFrame with the sentiment score for each news article.
+        """
         df_news = {}
         grouped_df = df.groupby("date")
         for group in grouped_df:
@@ -224,6 +264,18 @@ class RLDatabase:
         return pd.DataFrame.from_dict(df_news, orient='index', columns=['sentiment_score'])
 
     def _create_sentiment_index(self, news_df, start_time, end_time, lookback_window='1D'):
+        """
+        Creates the sentiment index based on the news data.
+
+        Args:
+            news_df (pd.DataFrame): The DataFrame containing the news data.
+            start_time (str): The start time for the sentiment index.
+            end_time (str): The end time for the sentiment index.
+            lookback_window (str, optional): The lookback window for the sentiment index. Defaults to '1D'.
+
+        Returns:
+            pd.DataFrame: The sentiment index DataFrame.
+        """
         news_df.index = pd.to_datetime(news_df.index)
         max_score = news_df['sentiment_score'].abs().max()
         news_df['normalized_sentiment'] = news_df['sentiment_score'] / max_score
@@ -250,6 +302,12 @@ class RLDatabase:
         return sentiment_index
     
     def _create_sentiment_df(self):
+        """
+        Creates the sentiment DataFrame by reading data from a CSV file and processing it.
+
+        Returns:
+            pd.DataFrame: The sentiment DataFrame.
+        """
         if self.sentiment_df is not None:
             return self.sentiment_df
         try:
@@ -265,6 +323,12 @@ class RLDatabase:
             print(f"Error in creating sentiment df: {e}")
             
     def create_train_test_info(self):
+        """
+        Creates the training and testing data by combining OHLCV, technical analysis, and sentiment data.
+
+        Returns:
+            dict: A dictionary containing the training and testing data.
+        """
         if self.train_test_info is not None:
             return self.train_test_info
         ohlcv = self._create_ohlcv_df()
@@ -293,5 +357,3 @@ class RLDatabase:
         test_df = test_df.dropna()
         self.train_test_info = {"train": train_df, "test": test_df}
         return self.train_test_info
-  
-        

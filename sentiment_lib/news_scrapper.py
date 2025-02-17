@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -7,10 +6,23 @@ import requests
 
 class AlphavantageScrapper:
     def __init__(self) -> None:
+        """
+        Initializes the AlphavantageScrapper class and loads the API key from environment variables.
+        """
         load_dotenv()
         self.api_key = os.getenv('ALPHAVANTAGE_KEY')
         
-    def process_data_as_df(self,data, ticker:str):
+    def process_data_as_df(self, data, ticker: str):
+        """
+        Processes the raw news data and converts it into a DataFrame.
+
+        Args:
+            data (list): The raw news data.
+            ticker (str): The ticker symbol of the stock.
+
+        Returns:
+            pd.DataFrame: The processed news data as a DataFrame.
+        """
         new_data = []
         for info in data:
             ticker_info = [item for item in info['ticker_sentiment'] if item['ticker'] == ticker][0]
@@ -29,11 +41,23 @@ class AlphavantageScrapper:
             }
             new_data.append(filtered_info)
         df = pd.DataFrame(new_data)
-        df.time = pd.to_datetime(df.time,format='%Y%m%dT%H%M%S')
+        df.time = pd.to_datetime(df.time, format='%Y%m%dT%H%M%S')
         df.set_index('time', inplace=True)
         return df
     
-    def fetch_news_data(self, ticker:str, open_time:datetime, close_time:datetime, limit:int=1000):
+    def fetch_news_data(self, ticker: str, open_time: datetime, close_time: datetime, limit: int = 1000):
+        """
+        Fetches news data from the Alpha Vantage API.
+
+        Args:
+            ticker (str): The ticker symbol of the stock.
+            open_time (datetime): The start time for fetching news data.
+            close_time (datetime): The end time for fetching news data.
+            limit (int, optional): The maximum number of news articles to fetch. Defaults to 1000.
+
+        Returns:
+            list: The fetched news data.
+        """
         open_time = open_time.strftime('%Y%m%dT%H%M')
         close_time = close_time.strftime('%Y%m%dT%H%M')
         url = f'https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers={ticker}&time_from={open_time}&time_to={close_time}&sort=EARLIEST&limit={limit}&apikey={self.api_key}'
@@ -50,8 +74,19 @@ class AlphavantageScrapper:
             print(f"Error in fetching data: {error}")
             return None
         
-        
-    def create_news_df(self, ticker:str, open_time:datetime, close_time:datetime, limit:int=1000):
+    def create_news_df(self, ticker: str, open_time: datetime, close_time: datetime, limit: int = 1000):
+        """
+        Creates a DataFrame containing news data for the given ticker and time range.
+
+        Args:
+            ticker (str): The ticker symbol of the stock.
+            open_time (datetime): The start time for fetching news data.
+            close_time (datetime): The end time for fetching news data.
+            limit (int, optional): The maximum number of news articles to fetch. Defaults to 1000.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing the news data.
+        """
         news_df = pd.DataFrame()
         last_date = open_time
         previous_date = open_time
@@ -68,4 +103,3 @@ class AlphavantageScrapper:
                 break
         news_df = news_df[~news_df.index.duplicated(keep='first')]
         return news_df
-    

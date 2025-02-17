@@ -19,6 +19,20 @@ class TradeEnv(gymnasium.Env):
                  reward_scale:float = 1,
                  only_long: bool = False,
                  verbose: bool = False):
+        """
+        Initializes the TradeEnv class with the given parameters.
+
+        Args:
+            data (pd.DataFrame): The DataFrame containing the trading data.
+            ticker (str): The ticker symbol of the stock.
+            initial_balance (int, optional): The initial balance for trading. Defaults to 1E6.
+            time_window (int, optional): The time window for the data. Defaults to 60.
+            trade_cost (float, optional): The cost of trading. Defaults to 0.0004.
+            reward_logic (str, optional): The logic for calculating rewards. Defaults to 'position_return'.
+            reward_scale (float, optional): The scale for rewards. Defaults to 1.
+            only_long (bool, optional): Whether to allow only long positions. Defaults to False.
+            verbose (bool, optional): Whether to print verbose output. Defaults to False.
+        """
         self.data = data
         self.ticker = ticker
         self.initial_balance = initial_balance
@@ -39,6 +53,15 @@ class TradeEnv(gymnasium.Env):
         self.reset()
         
     def _get_current_state_from_datetime(self, datetime):
+        """
+        Gets the current state from the given datetime.
+
+        Args:
+            datetime (datetime): The current datetime.
+
+        Returns:
+            dict: The current state.
+        """
         datetime_index = self.dates.index(datetime)
         previous_index = datetime_index + 1 - self.time_window 
         df_previous = self.data.loc[self.dates[previous_index]:self.dates[datetime_index]]
@@ -60,12 +83,31 @@ class TradeEnv(gymnasium.Env):
         return current_state
 
     def _get_current_return_from_datetime(self, datetime):
+        """
+        Gets the current return from the given datetime.
+
+        Args:
+            datetime (datetime): The current datetime.
+
+        Returns:
+            float: The current return.
+        """
         datetime_index = self.dates.index(datetime)
         curr_price = self.data.loc[datetime]['close_real']
         prev_price = self.data.loc[self.dates[datetime_index - 1]]['close_real']
         return (curr_price - prev_price) / prev_price
     
     def _get_future_return_from_datetime(self, datetime, period):
+        """
+        Gets the future return from the given datetime and period.
+
+        Args:
+            datetime (datetime): The current datetime.
+            period (int): The period for calculating the future return.
+
+        Returns:
+            float: The future return.
+        """
         datetime_index = self.dates.index(datetime)
         curr_price = self.data.loc[datetime]['close_real']
         try:
@@ -75,6 +117,15 @@ class TradeEnv(gymnasium.Env):
         return (future_price - curr_price) / curr_price
     
     def _get_metrics(self, returns):
+        """
+        Calculates various metrics based on the returns.
+
+        Args:
+            returns (list): The list of returns.
+
+        Returns:
+            dict: A dictionary containing the calculated metrics.
+        """
         returns = np.array(returns)
         total_return = np.prod(1 + returns)
         mean_return = np.mean(returns)
@@ -91,6 +142,16 @@ class TradeEnv(gymnasium.Env):
         return info
         
     def _print_info(self, returns, title: str = "Trading Info"):
+        """
+        Prints the trading information based on the returns.
+
+        Args:
+            returns (list): The list of returns.
+            title (str, optional): The title for the information. Defaults to "Trading Info".
+
+        Returns:
+            dict: A dictionary containing the printed information.
+        """
         info = self._get_metrics(returns)
         print(f"\n==== {title} ====")
         print("Total Return : {:.2f}".format(info['total_return']))
@@ -100,11 +161,26 @@ class TradeEnv(gymnasium.Env):
         return info
 
     def _seed(self, seed=None):
+        """
+        Sets the seed for the environment.
+
+        Args:
+            seed (int, optional): The seed value. Defaults to None.
+
+        Returns:
+            list: A list containing the seed value.
+        """
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     
     def _return_reward(self):
+        """
+        Calculates the reward based on the current action return.
+
+        Returns:
+            float: The calculated reward.
+        """
         reward = self.curr_action_return
         if self.just_opened:
             reward -= self.trade_cost
@@ -115,6 +191,12 @@ class TradeEnv(gymnasium.Env):
         return 0
 
     def _position_reward(self):
+        """
+        Calculates the reward based on the position return.
+
+        Returns:
+            float: The calculated reward.
+        """
         reward = self.position_return
         if self.use_log:
             reward = np.log(reward)
@@ -123,6 +205,15 @@ class TradeEnv(gymnasium.Env):
         return 0
     
     def _time_reward(self, period):
+        """
+        Calculates the reward based on the future return for a given period.
+
+        Args:
+            period (int): The period for calculating the future return.
+
+        Returns:
+            float: The calculated reward.
+        """
         curr_date = self.dates[self.time_index]
         future_returns = self._get_future_return_from_datetime(curr_date, period)
         if self.is_short_open:
@@ -136,6 +227,12 @@ class TradeEnv(gymnasium.Env):
         return 0
             
     def get_reward(self):
+        """
+        Gets the reward based on the reward logic.
+
+        Returns:
+            float: The calculated reward.
+        """
         reward_str_split = self.reward_logic.split("_")
         self.use_log = False
         if "log" in reward_str_split:
@@ -150,6 +247,15 @@ class TradeEnv(gymnasium.Env):
         return reward*self.reward_scale
 
     def step(self, action):
+        """
+        Takes a step in the environment based on the given action.
+
+        Args:
+            action (int): The action to take.
+
+        Returns:
+            tuple: The current state, reward, done flag, truncated flag, and additional info.
+        """
         self.action = action -1
         curr_date = self.dates[self.time_index]
         self.curr_return = self._get_current_return_from_datetime(curr_date)
@@ -231,6 +337,16 @@ class TradeEnv(gymnasium.Env):
     def reset(self, *,
               seed: int = 42,
               options=None):
+        """
+        Resets the environment to its initial state.
+
+        Args:
+            seed (int, optional): The seed value. Defaults to 42.
+            options (dict, optional): Additional options for resetting. Defaults to None.
+
+        Returns:
+            tuple: The initial state and memory.
+        """
         self.time_index = self.time_window - 1
         self.current_balance = self.initial_balance
         self.memory = {}
@@ -252,11 +368,27 @@ class TradeEnv(gymnasium.Env):
         return curr_state, self.memory
     
     def get_sb_env(self):
+        """
+        Gets the stable-baselines environment.
+
+        Returns:
+            tuple: The stable-baselines environment and initial observation.
+        """
         e = DummyVecEnv([lambda: self])
         obs = e.reset()
         return e, obs
     
     def show_final_results(self, saving_path: str = None, **kwargs):
+        """
+        Shows the final results of the trading environment.
+
+        Args:
+            saving_path (str, optional): The path to save the results. Defaults to None.
+            **kwargs: Additional keyword arguments for the report.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing the positions.
+        """
         report_creator = ReportCreator(env = self, saving_path = saving_path)
         report_creator._create_all_time_df()
         report_creator._create_positions_df()

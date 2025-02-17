@@ -16,13 +16,21 @@ REQUESTS_HEADER = {
 
 class FullTextScrapper:
     def __init__(self) -> None:
-       pass
-
-    
-    def filter_text(self, text):
-        return text
+        """
+        Initializes the FullTextScrapper class.
+        """
+        pass
     
     def get_full_text_by_url(self, url):  
+        """
+        Retrieves the full text from the given URL.
+
+        Args:
+            url (str): The URL to retrieve the text from.
+
+        Returns:
+            str: The full text retrieved from the URL.
+        """
         response = requests.get(url, headers=REQUESTS_HEADER, timeout=5)
         soup = BeautifulSoup(response.content, 'html.parser')
         text = ''
@@ -31,6 +39,18 @@ class FullTextScrapper:
         return text
     
     def create_df_from_full_text(self, df, ticker:str, temp_df=None, save_count:int=100):
+        """
+        Creates a DataFrame from the full text of news articles.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing the URLs of the news articles.
+            ticker (str): The ticker symbol of the stock.
+            temp_df (pd.DataFrame, optional): A temporary DataFrame to store intermediate results. Defaults to None.
+            save_count (int, optional): The number of articles to process before saving the intermediate results. Defaults to 100.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing the full text of the news articles.
+        """
         dates = []
         errors = []
         full_texts = []
@@ -39,8 +59,8 @@ class FullTextScrapper:
             dates = temp_df.time.tolist()
             full_texts = temp_df.news.tolist()    
             df = df.loc[df.index > temp_df.index[-1]]    
-            print("Tamanho do dataframe temporário: ",len(temp_df))
-        print("Tamanho do dataframe faltante: ",len(df))
+            print("Temp df size:: ",len(temp_df))
+        print("Missing df size: ",len(df))
         count = 0
         for news_index in range(len(df)):
             url = df.url[news_index]
@@ -62,5 +82,3 @@ class FullTextScrapper:
         temp_df.to_csv(f"temps_texts/{ticker}.csv")
         temp_df.index = pd.to_datetime(temp_df.time)
         return temp_df
-            
-

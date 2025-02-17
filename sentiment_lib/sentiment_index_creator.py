@@ -39,6 +39,13 @@ class NLPInfo():
     def __init__(self, 
                  bert_model:str = 'bert-large-uncased',
                  finbert_model:str = 'yiyanghkust/finbert-tone'):
+        """
+        Initializes the NLPInfo class with the given BERT and FinBERT models.
+
+        Args:
+            bert_model (str, optional): The BERT model to use. Defaults to 'bert-large-uncased'.
+            finbert_model (str, optional): The FinBERT model to use. Defaults to 'yiyanghkust/finbert-tone'.
+        """
         self.bert_model = BertModel.from_pretrained(bert_model)
         self.bert_tokenizer = BertTokenizer.from_pretrained(bert_model)
         self.finbert_model = BertForSequenceClassification.from_pretrained(finbert_model)
@@ -50,24 +57,57 @@ class NLPInfo():
         self.finbert_model.eval()
         
     def create_reference_embeddings(self, ticker:str):
+        """
+        Creates reference embeddings for the given ticker.
+
+        Args:
+            ticker (str): The ticker symbol of the stock.
+        """
         texts = TICKERS_TEXTS[ticker] + [ticker]
         self.reference_embeddings = []
         for text in texts:
             self.reference_embeddings.append(self.create_bert_embedding(text))
         
     def create_bert_embedding(self, text:str):
+        """
+        Creates a BERT embedding for the given text.
+
+        Args:
+            text (str): The text to create the embedding for.
+
+        Returns:
+            np.array: The BERT embedding.
+        """
         with torch.no_grad():
             input_ids = self.bert_tokenizer.encode(text, max_length=512, truncation=True, return_tensors="pt").to(self.device)
             output = self.bert_model(input_ids)
             return output[0].mean(dim=1).cpu().numpy()
         
     def create_finbert_tensor(self, text:str):
+        """
+        Creates a FinBERT tensor for the given text.
+
+        Args:
+            text (str): The text to create the FinBERT tensor for.
+
+        Returns:
+            np.array: The FinBERT tensor.
+        """
         with torch.no_grad():
             input_ids = self.finbert_tokenizer.encode(text, max_length=512, truncation=True, return_tensors="pt").to(self.device)
             output = self.finbert_model(input_ids)
             return output.logits.cpu().numpy()
     
     def calculate_best_euclidean_distance(self, new_embedding:np.array):
+        """
+        Calculates the best Euclidean distance between the new embedding and the reference embeddings.
+
+        Args:
+            new_embedding (np.array): The new embedding.
+
+        Returns:
+            float: The best Euclidean distance.
+        """
         best_distance = np.inf
         for ref_embedding in self.reference_embeddings:
             distance = np.linalg.norm(new_embedding - ref_embedding)
@@ -76,13 +116,24 @@ class NLPInfo():
         return best_distance
         
     def create_mlp_df_from_news(self, news_df:pd.DataFrame, temp_df=None, save_count:int=35):
+        """
+        Creates a DataFrame from the news data with BERT and FinBERT embeddings.
+
+        Args:
+            news_df (pd.DataFrame): The DataFrame containing the news data.
+            temp_df (pd.DataFrame, optional): A temporary DataFrame to store intermediate results. Defaults to None.
+            save_count (int, optional): The number of articles to process before saving the intermediate results. Defaults to 35.
+
+        Returns:
+            pd.DataFrame: The DataFrame containing the news data with BERT and FinBERT embeddings.
+        """
         dfs_to_concat = []        
         ticker = news_df['ticker'].iloc[0]
         self.create_reference_embeddings(ticker)
         if temp_df is not None:
             news_df = news_df.loc[news_df.index > temp_df.index[-1]]    
             dfs_to_concat.append(temp_df)
-            print("Tamanho do dataframe temporário: ",len(temp_df))
+            print("Temp df size: ",len(temp_df))
         count = 0
         for date in news_df.index:
             new_info = news_df.loc[date]
@@ -111,5 +162,3 @@ class NLPInfo():
                 print(f"Last updated for {ticker}: {datetime.now()}")
                 count = 0            
         return pd.concat(dfs_to_concat)
-
-        
