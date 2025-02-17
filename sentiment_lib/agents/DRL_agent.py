@@ -3,54 +3,13 @@ import numpy as np
 import torch
 import random
 from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.logger import configure
+from .callbacks import *
 
-class TensorboardCallback(BaseCallback):
-    """
-    Custom callback for plotting additional values in Tensorboard.
-    """
-
-    def __init__(self, verbose=0):
-        """
-        Initializes the TensorboardCallback.
-
-        Parameters
-        ----------
-        verbose : int, optional
-            Verbosity level, by default 0.
-        """
-        super().__init__(verbose)
-
-    def _on_step(self) -> bool:
-        """
-        Method called at each step of the training process to record custom metrics in Tensorboard.
-
-        Returns
-        -------
-        bool
-            Whether to continue training (always True).
-        """
-        try:
-            self.logger.record(key="train/reward", value=self.locals["rewards"][0])
-        except BaseException:
-            self.logger.record(key="train/reward", value=self.locals["reward"][0])
-        return True
-    
 class DRLAgent:
     """
     Provides implementations for DRL algorithms.
     """
-
     def __init__(self, env):
-        """
-        Initializes the DRLAgent with a specific environment.
-
-        Parameters
-        ----------
-        env : gym.Env
-            The environment where the agent will be trained.
-        """
         self.env = env
 
     def get_model(
@@ -63,36 +22,6 @@ class DRLAgent:
         seed: int = 42,
         tensorboard_log=None,
     ):
-        """
-        Setup and return a DRL model.
-
-        Parameters
-        ----------
-        model_name : str
-            The name of the DRL model to use.
-        policy : str, optional
-            The policy model to use, by default "MlpPolicy".
-        policy_kwargs : dict, optional
-            Additional arguments for the policy, by default None.
-        model_kwargs : dict, optional
-            Additional arguments for the model, by default None.
-        verbose : int, optional
-            Verbosity level, by default 1.
-        seed : int, optional
-            Random seed for reproducibility, by default 42.
-        tensorboard_log : str, optional
-            Path to save Tensorboard logs, by default None.
-
-        Returns
-        -------
-        object
-            The initialized DRL model.
-        
-        Raises
-        ------
-        NotImplementedError
-            If the model name is not implemented.
-        """
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
 
@@ -108,6 +37,8 @@ class DRLAgent:
         torch.manual_seed(seed)
         random.seed(seed)
         set_random_seed(seed)
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         return MODELS[model_name](
             policy=policy,
             env=self.env,
@@ -115,85 +46,52 @@ class DRLAgent:
             verbose=verbose,
             seed=seed,
             policy_kwargs=policy_kwargs,
+            device=device,
             **model_kwargs,
         )
 
-    def train_model(self, model, tb_log_name, total_timesteps=5000):
+    def train_model(self, model, tb_log_name, total_timesteps=5000, early_stop_reward=None, early_stop_n_steps=1000):
         """
         Train the DRL model and return the trained model.
-
-        Parameters
-        ----------
-        model : object
-            The DRL model to train.
-        tb_log_name : str
-            The name of the Tensorboard log.
-        total_timesteps : int, optional
-            The total number of timesteps to train, by default 5000.
-
-        Returns
-        -------
-        object
-            The trained DRL model.
+        
+        Parameters:
+            model : object
+                The DRL model to train.
+            tb_log_name : str
+                The name of the Tensorboard log.
+            total_timesteps : int, optional
+                The total number of timesteps to train (default: 5000).
+            early_stop_reward : float, optional
+                If not None, training will stop if the mean reward of the last early_stop_n_steps is >= early_stop_reward (default: None).
+            early_stop_n_steps : int, optional
+                Number of steps to calculate the average (default: 1000).
+        
+        Returns:
+            object: The trained DRL model.
         """
+        callbacks = [TensorboardCallback()]
+        if early_stop_reward is not None:
+            callbacks.append(EarlyStoppingCallback(min_reward=early_stop_reward, n_steps=early_stop_n_steps, verbose=False))
         model = model.learn(
             total_timesteps=total_timesteps,
             tb_log_name=tb_log_name,
-            callback=TensorboardCallback(),
+            callback=callbacks,
         )
         return model
     
     def DRL_prediction_load_from_file(self, model_name, cwd, deterministic=True):
-        """
-        Make a prediction using a model loaded from a file.
-
-        Parameters
-        ----------
-        model_name : str
-            The name of the DRL model to use.
-        cwd : str
-            The path to the model file.
-        deterministic : bool, optional
-            Whether to use deterministic actions, by default True.
-
-        Returns
-        -------
-        gym.Env
-            The environment after executing the prediction.
-        """
         model = self.load_from_file(model_name, cwd)
         obs, info = self.env.reset()
         done = False
+        prev_states = None
         while not done:
-            action, _states = model.predict(obs, deterministic=deterministic)
+            action, prev_states = model.predict(obs, state=prev_states, deterministic=deterministic)
             action = float(action)
             obs, reward, done, _, info = self.env.step(action)
         return self.env
 
     @classmethod
     def load_from_file(cls, model_name, cwd):
-        """
-        Load a model from a file.
-
-        Parameters
-        ----------
-        model_name : str
-            The name of the DRL model to load.
-        cwd : str
-            The path to the model file.
-
-        Returns
-        -------
-        object
-            The loaded DRL model.
-        
-        Raises
-        ------
-        NotImplementedError
-            If the model name is not implemented.
-        ValueError
-            If the model fails to load.
-        """
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
         try:
