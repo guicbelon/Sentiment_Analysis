@@ -158,10 +158,14 @@ class ReportCreator:
         df_strategy[f'{self.env_test.ticker}_returns'] = df_strategy['close_real'].pct_change()
         dir_path = os.path.dirname(os.path.realpath(__file__))
         template_path = os.path.join(dir_path, 'template.html')
+        df_strategy = df_strategy.dropna()
+        df_strategy.index = pd.to_datetime(df_strategy.index)
         qs.reports.html(returns=df_strategy['strategy_returns'], 
                     benchmark=df_strategy[f'{self.env_test.ticker}_returns'], 
                     output=f'{self.save_path}/strategy_report.html',
-                    template_path=template_path)
+                    template_path=template_path,
+                    match_dates=False ,
+                    periods_per_year=24 * 60 )
         df_html = self.df_positions.to_html(index=False)
         with open(f'{self.save_path}/strategy_report.html', "r") as file:
             soup = BeautifulSoup(file, "html.parser")

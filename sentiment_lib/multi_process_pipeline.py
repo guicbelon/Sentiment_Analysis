@@ -1,19 +1,46 @@
 import threading
 import warnings
 from datetime import datetime
+from stable_baselines3.common.logger import configure
 from .agents.DRL_agent import *
 from .trade_env import *
+from .params import *
 import os
 warnings.filterwarnings("ignore")
 
 
 class MultiProcessingPipeline:
+    """
+    A class to manage a multiprocessing pipeline for training and testing reinforcement learning models 
+    on cryptocurrency data.
+    """
+    
     def __init__(self, 
                  ticker: str,
                  train_kwargs: dict = None,
                  test_kwargs: dict = None,
                  n_process: int = 4,  
-                 model: str = "rppo",):
+                 model: str = "rppo",
+                 base_path: str = "normal"):
+        """
+        Initializes the MultiProcessingPipeline with training and testing data, model parameters, 
+        and settings for multiprocessing.
+
+        Parameters
+        ----------
+        ticker : str
+            The ticker symbol.
+        train_kwargs : dict, optional
+            Dictionary of training environment parameters (default is None).
+        test_kwargs : dict, optional
+            Dictionary of testing environment parameters (default is None).
+        n_process : int, optional
+            Number of processes to run in parallel (default is 4).
+        model : str, optional
+            The model to use for reinforcement learning (default is "rppo").
+        base_path : str, optional
+            The base path for saving results (default is "normal").
+        """
         self.train_kwargs = train_kwargs
         self.test_kwargs = test_kwargs
         self.n_process = n_process
@@ -26,7 +53,7 @@ class MultiProcessingPipeline:
         now = datetime.now()
         today = now.strftime('%Y%m%d')
         now = now.strftime('%Hh%M')
-        self.base_dir = "results" + '/' + ticker + '/' + today + '/' + now + '/' + self.model
+        self.base_dir = os.path.join(RESULTS_DIR, base_path, ticker,today, now, self.model)
     
     def get_environment_data(self, kwargs:str=None):
         """
@@ -166,6 +193,7 @@ class MultiProcessingPipeline:
             "end_train_date": env_train.data.index[-1].strftime("%Y-%m-%d %H:%M:%S"),
             "end_test_date": env_test.data.index[-1].strftime("%Y-%m-%d %H:%M:%S"),
             "positions_created":positions_created,
+            
         }
         report_creator._create_img_df()
         report_creator._create_strategy_performance_img()
