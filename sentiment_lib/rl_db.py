@@ -352,7 +352,9 @@ class RLDatabase:
         if self.include_sentiment_info:
             sentiment_df = self._create_sentiment_df()
             train_df = pd.concat([train_df, sentiment_df], axis=1)
+            train_df.sentiment_score.fillna(0, inplace=True)
             test_df = pd.concat([test_df, sentiment_df], axis=1)
+            test_df.sentiment_score.fillna(0, inplace=True)
         train_df = train_df.dropna()
         test_df = test_df.dropna()
         self.train_test_info = {"train": train_df, "test": test_df}

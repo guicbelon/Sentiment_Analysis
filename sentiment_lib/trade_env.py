@@ -389,7 +389,7 @@ class TradeEnv(gymnasium.Env):
         Returns:
             pd.DataFrame: The DataFrame containing the positions.
         """
-        report_creator = ReportCreator(env = self, saving_path = saving_path)
+        report_creator = ReportCreator(env_test = self, saving_path = saving_path)
         report_creator._create_all_time_df()
         report_creator._create_positions_df()
         print("Number of positions: ", len(self.position_memory))
